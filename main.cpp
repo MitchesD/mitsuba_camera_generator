@@ -31,17 +31,50 @@ std::tuple<std::string, std::string> gen_mitsuba_header(std::string const& versi
     return { begin, end };
 }
 
-void gen_camera_params(float const fov, float const focus_distance, float const aperture_radius, float const view_cone)
+void gen_camera_params(float const fov, float const focus_distance, float const aperture_radius)
 {
     std::ofstream file("camera_params.xml");
     auto [scene_begin, scene_end] = gen_mitsuba_header("3.0.0");
     file << scene_begin;
     file << "<string name=\"fov_axis\" value=\"smaller\" />\n";
-    file << "<float name=\"focus_distance\" value=\"" << focus_distance << "\" />\n";
-    file << "<float name=\"aperture_radius\" value=\"" << aperture_radius << "\" />\n";
-    file << "<float name=\"fov\" value=\"" << fov << "\" />\n";
-    file << "<float name=\"view_cone\" value=\"" << view_cone << "\" />\n";
+    file << R"(<float name="focus_distance" value=")" << focus_distance << "\" />\n";
+    file << R"(<float name="aperture_radius" value=")" << aperture_radius << "\" />\n";
+    file << R"(<float name="fov" value=")" << fov << "\" />\n";
     file << scene_end;
+    file.close();
+}
+
+void gen_camera_batch(int const rows, int const cols, float const offset, float const focus_distance)
+{
+    int total_views = rows * cols;
+
+    std::ofstream file("scene_batch.xml");
+    file << "<sensor type=\"batch\">\n";
+    file << "\t<int name=\"rows\" value=\"1\" />\n";
+    file << "\t<int name=\"cols\" value=\"" << cols << "\" />\n";
+    file << "\t<integer name=\"total_views\" value=\"" << total_views << "\" />\n";
+    file << "\t<float name=\"offset\" value=\"" << offset << "\" />\n";
+    file << "\t<float name=\"focus_distance\" value=\"" << focus_distance << "\" />\n";
+    file << "\t<include filename=\"small_$row.xml\" />\n";
+    file << R"(
+    <sampler type="independent">
+        <integer name="sample_count" value="$spp"/>
+    </sampler>
+    )";
+
+    file << R"(
+    <film type="hdrfilm" id="film">
+        <integer name="width" value="$width"/>
+        <integer name="height" value="$height"/>
+        <string name="file_format" value="openexr" />
+		<string name="pixel_format" value="rgb" />
+        <rfilter type="gaussian">
+            <float name="stddev" value="0.75" />
+        </rfilter>
+    </film>)";
+
+    file << "\n</sensor>\n";
+
     file.close();
 }
 
@@ -53,7 +86,6 @@ int main(int argc, char** argv)
     float aperture_radius = 0.0f;
     float fov = 0.0f;
     float focus_distance = 0.0f;
-    float view_cone = 0.0f;
     std::string to_world_str = "";
     std::string name = "";
 
@@ -67,7 +99,6 @@ int main(int argc, char** argv)
         ("radius,a", po::value<float>(&aperture_radius), "Aperture radius")
         ("fov,f", po::value<float>(&fov), "Field of view")
         ("distance,d", po::value<float>(&focus_distance), "Focus distance")
-        ("viewcone,w", po::value<float>(&view_cone), "View cone")
         ("help,h", "Produce help message");
 
     po::variables_map vm;
@@ -78,18 +109,6 @@ int main(int argc, char** argv)
     {
         std::cout << desc << "\n";
         return 1;
-    }
-
-    // Re-evaluate offset based on view cone
-    if (vm.contains("viewcone"))
-    {
-        // TODO: implement
-    }
-    else // Evaluate view cone based on offset
-    {
-        // TODO: focus_distance should not be therefore normalized
-        //float horizontal_length = (offset * rows * cols) / 2.0f;
-        //view_cone = 2.0f * std::atan(horizontal_length / d);
     }
 
     glm::mat4 to_world = glm::mat4(1.0f);
@@ -109,7 +128,8 @@ int main(int argc, char** argv)
     glm::vec3 const up = glm::normalize(glm::vec3(to_world[1]));
     glm::vec3 const right = glm::vec3(to_world[0]);
 
-    gen_camera_params(fov, focus_distance, aperture_radius, view_cone);
+    gen_camera_batch(rows, cols, offset, focus_distance);
+    gen_camera_params(fov, focus_distance, aperture_radius);
 
     int cameras = rows * cols;
     int mid_point = cameras / 2;
@@ -124,20 +144,20 @@ int main(int argc, char** argv)
         {
             float t = 1.0f - (float)local_id++ / (float)(cameras - 1);
             file << "<sensor type=\"thinlens\">\n";
-            file << "<float name=\"t\" value=\"" << std::to_string(t) << "\" />\n";
-            file << "<include filename=\"camera_params.xml\" />\n";
-            file << "<transform name=\"to_world\">\n";
+            file << "\t<float name=\"t\" value=\"" << std::to_string(t) << "\" />\n";
+            file << "\t<include filename=\"camera_params.xml\" />\n";
+            file << "\t<transform name=\"to_world\">\n";
 
             glm::vec3 new_point = origin - (i + j) * offset * right;
             glm::vec3 new_target = forward - (i + j) * offset * right;
             std::cout << new_target.x << " " << new_target.y << " " << new_target.z << std::endl;
 
-            file << "\t<lookat target=\"" << new_target.x << ", " << new_target.y << ", " << new_target.z << "\" "
+            file << "\t\t<lookat target=\"" << new_target.x << ", " << new_target.y << ", " << new_target.z << "\" "
                 "origin=\"" << new_point.x << ", " << new_point.y << ", " << new_point.z << "\" "
                 "up=\"" << up.x << ", " << up.y << ", " << up.z << "\" />\n";
 
-            file << "</transform>\n";
-            file << "<include filename=\"camera_film.xml\" />\n";
+            file << "\t</transform>\n";
+            file << "\t<include filename=\"camera_film.xml\" />\n";
             file << "</sensor>\n\n";
         }
         file << scene_end;
