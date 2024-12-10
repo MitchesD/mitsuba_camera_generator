@@ -50,8 +50,8 @@ void gen_camera_batch(int const rows, int const cols, float const offset, float 
 
     std::ofstream file("scene_batch.xml");
     file << "<sensor type=\"batch\">\n";
-    file << "\t<int name=\"rows\" value=\"1\" />\n";
-    file << "\t<int name=\"cols\" value=\"" << cols << "\" />\n";
+    file << "\t<integer name=\"rows\" value=\"1\" />\n";
+    file << "\t<integer name=\"cols\" value=\"" << cols << "\" />\n";
     file << "\t<integer name=\"total_views\" value=\"" << total_views << "\" />\n";
     file << "\t<float name=\"offset\" value=\"" << offset << "\" />\n";
     file << "\t<float name=\"focus_distance\" value=\"" << focus_distance << "\" />\n";
@@ -68,7 +68,7 @@ void gen_camera_batch(int const rows, int const cols, float const offset, float 
         <integer name="height" value="$height"/>
         <string name="file_format" value="openexr" />
 		<string name="pixel_format" value="rgb" />
-        <rfilter type="gaussian">
+        <rfilter type="rdepth">
             <float name="stddev" value="0.75" />
         </rfilter>
     </film>)";
