@@ -31,13 +31,12 @@ std::tuple<std::string, std::string> gen_mitsuba_header(std::string const& versi
     return { begin, end };
 }
 
-void gen_camera_params(float const fov, float const focus_distance, float const aperture_radius)
+void gen_camera_params(float const fov, float const aperture_radius)
 {
     std::ofstream file("camera_params.xml");
     auto [scene_begin, scene_end] = gen_mitsuba_header("3.0.0");
     file << scene_begin;
-    file << "<string name=\"fov_axis\" value=\"smaller\" />\n";
-    file << R"(<float name="focus_distance" value=")" << focus_distance << "\" />\n";
+    //file << "<string name=\"fov_axis\" value=\"smaller\" />\n";
     file << R"(<float name="aperture_radius" value=")" << aperture_radius << "\" />\n";
     file << R"(<float name="fov" value=")" << fov << "\" />\n";
     file << scene_end;
@@ -124,12 +123,10 @@ int main(int argc, char** argv)
 
     to_world = glm::transpose(to_world);
     glm::vec3 const origin = glm::vec3(to_world[3]);
-    glm::vec3 const forward = glm::vec3(to_world[2]);
-    glm::vec3 const up = glm::normalize(glm::vec3(to_world[1]));
     glm::vec3 const right = glm::vec3(to_world[0]);
 
     gen_camera_batch(rows, cols, offset, focus_distance);
-    gen_camera_params(fov, focus_distance, aperture_radius);
+    gen_camera_params(fov, aperture_radius);
 
     int cameras = rows * cols;
     int mid_point = cameras / 2;
@@ -149,12 +146,18 @@ int main(int argc, char** argv)
             file << "\t<transform name=\"to_world\">\n";
 
             glm::vec3 new_point = origin - (i + j) * offset * right;
-            glm::vec3 new_target = forward - (i + j) * offset * right;
-            std::cout << new_target.x << " " << new_target.y << " " << new_target.z << std::endl;
 
-            file << "\t\t<lookat target=\"" << new_target.x << ", " << new_target.y << ", " << new_target.z << "\" "
-                "origin=\"" << new_point.x << ", " << new_point.y << ", " << new_point.z << "\" "
-                "up=\"" << up.x << ", " << up.y << ", " << up.z << "\" />\n";
+            file << "\t\t<matrix value=\"";
+            auto new_to_world = to_world;
+            new_to_world[3] = glm::vec4(new_point, 1.0f);
+            new_to_world = glm::transpose(new_to_world);
+            for (int k = 0; k < 16; k++)
+            {
+                file << new_to_world[k / 4][k % 4];
+                if (k != 15)
+                    file << " ";
+            }
+            file << "\"/>\n";
 
             file << "\t</transform>\n";
             file << "\t<include filename=\"camera_film.xml\" />\n";
