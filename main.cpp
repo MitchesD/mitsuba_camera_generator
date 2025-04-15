@@ -68,7 +68,7 @@ void gen_camera_batch(int const rows, int const cols, float const offset, float 
         <string name="file_format" value="openexr" />
 		<string name="pixel_format" value="rgb" />
         <rfilter type="rdepth">
-            <float name="stddev" value="0.75" />
+            <float name="stddev" value="$rd" />
         </rfilter>
     </film>)";
 
