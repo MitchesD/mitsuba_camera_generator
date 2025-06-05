@@ -1,3 +1,10 @@
+/**
+ * @file main.cpp
+ * Generate Mitsuba camera XML files for a batch of cameras.
+ *
+ * Copyright (c) 2025, Michal Vlnas
+ */
+
 #include <iostream>
 #include <fstream>
 #include <boost/program_options/options_description.hpp>
@@ -77,6 +84,20 @@ void gen_camera_batch(int const rows, int const cols, float const offset, float 
     file.close();
 }
 
+void gen_camera_film(int const width, int const height)
+{
+    std::ofstream file("camera_film.xml");
+    auto [scene_begin, scene_end] = gen_mitsuba_header("3.0.0");
+    file << scene_begin;
+    file << "<film type=\"hdrfilm\">\n";
+    file << "\t<integer name=\"width\" value=\"" << width << "\" />\n";
+    file << "\t<integer name=\"height\" value=\"" << height << "\" />\n";
+    file << "\t<string name=\"file_format\" value=\"openexr\" />\n";
+    file << "\t<string name=\"pixel_format\" value=\"rgb\" />\n";
+    file << "</film>\n";
+    file << scene_end;
+}
+
 int main(int argc, char** argv)
 {
     int rows = 0;
@@ -127,6 +148,8 @@ int main(int argc, char** argv)
 
     gen_camera_batch(rows, cols, offset, focus_distance);
     gen_camera_params(fov, aperture_radius);
+    // Default values for LKG 8.9"
+    gen_camera_film(512, 256);
 
     int cameras = rows * cols;
     int mid_point = cameras / 2;
